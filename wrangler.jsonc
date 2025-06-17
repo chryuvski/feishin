@@ -1,0 +1,7 @@
+{
+  "name": "feishin-worker",
+  "compatibility_date": "2025-06-17",
+  "assets": {
+    "directory": "./out/web/"
+  }
+}
