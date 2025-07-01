@@ -1,14 +1,19 @@
-import { Divider, Group, Stack } from '@mantine/core';
 import debounce from 'lodash/debounce';
-import { ChangeEvent, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { NumberInput, SpinnerIcon, Switch, Text } from '/@/renderer/components';
 import { MultiSelectWithInvalidData } from '/@/renderer/components/select-with-invalid-data';
 import { useAlbumArtistList } from '/@/renderer/features/artists/queries/album-artist-list-query';
 import { useGenreList } from '/@/renderer/features/genres';
 import { useTagList } from '/@/renderer/features/tag/queries/use-tag-list';
 import { AlbumListFilter, useListFilterByKey, useListStoreActions } from '/@/renderer/store';
+import { Divider } from '/@/shared/components/divider/divider';
+import { Group } from '/@/shared/components/group/group';
+import { NumberInput } from '/@/shared/components/number-input/number-input';
+import { SpinnerIcon } from '/@/shared/components/spinner/spinner';
+import { Stack } from '/@/shared/components/stack/stack';
+import { Text } from '/@/shared/components/text/text';
+import { YesNoSelect } from '/@/shared/components/yes-no-select/yes-no-select';
 import {
     AlbumArtistListSort,
     AlbumListQuery,
@@ -67,15 +72,15 @@ export const JellyfinAlbumFilters = ({
         return filter?._custom?.jellyfin?.Tags?.split('|');
     }, [filter?._custom?.jellyfin?.Tags]);
 
-    const toggleFilters = [
+    const yesNoFilter = [
         {
             label: t('filter.isFavorited', { postProcess: 'sentenceCase' }),
-            onChange: (e: ChangeEvent<HTMLInputElement>) => {
+            onChange: (favorite?: boolean) => {
                 const updatedFilters = setFilter({
                     customFilters,
                     data: {
                         _custom: filter?._custom,
-                        favorite: e.currentTarget.checked ? true : undefined,
+                        favorite,
                     },
                     itemType: LibraryItem.ALBUM,
                     key: pageKey,
@@ -184,16 +189,16 @@ export const JellyfinAlbumFilters = ({
 
     return (
         <Stack p="0.8rem">
-            {toggleFilters.map((filter) => (
+            {yesNoFilter.map((filter) => (
                 <Group
+                    justify="space-between"
                     key={`nd-filter-${filter.label}`}
-                    position="apart"
                 >
                     <Text>{filter.label}</Text>
-                    <Switch
-                        checked={filter?.value || false}
+                    <YesNoSelect
                         onChange={filter.onChange}
                         size="xs"
+                        value={filter.value}
                     />
                 </Group>
             ))}
@@ -245,7 +250,7 @@ export const JellyfinAlbumFilters = ({
                     searchValue={albumArtistSearchTerm}
                 />
             </Group>
-            {tagsQuery.data?.boolTags?.length && (
+            {tagsQuery.data?.boolTags && tagsQuery.data.boolTags.length > 0 && (
                 <Group grow>
                     <MultiSelectWithInvalidData
                         clearable

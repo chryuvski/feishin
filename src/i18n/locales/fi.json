@@ -90,7 +90,9 @@
         "trackGain": "raidan vahvistus (gain)",
         "trackPeak": "kappaleen huippu (peak)",
         "additionalParticipants": "muut osallistujat",
-        "tags": "tägit"
+        "tags": "tägit",
+        "newVersion": "uusi versio on asennettu ({{version}})",
+        "viewReleaseNotes": "katsele julkaisutietoja"
     },
     "entity": {
         "album_one": "albumi",
@@ -279,7 +281,8 @@
         },
         "queryEditor": {
             "input_optionMatchAny": "sovita joku",
-            "input_optionMatchAll": "sovita kaikki"
+            "input_optionMatchAll": "sovita kaikki",
+            "title": "kyselyeditori"
         }
     },
     "setting": {
@@ -359,7 +362,7 @@
         "doubleClickBehavior": "lisää kaikki haetut kappaleet soittojonoon tuplaklikkauksella",
         "discordUpdateInterval_description": "päivitysväli sekunnteina (vähintään 15 sekunttia)",
         "discordRichPresence": "{{discord}} rich presence",
-        "discordRichPresence_description": "ota toiston tila käyttöön {{discord}}n rich presence-toiminnossa. Kuvakkeiden avaimet ovat {{icon}}, {{playing}} ja {{paused}}. ",
+        "discordRichPresence_description": "ota toiston tila käyttöön {{discord}}n rich presence-toiminnossa. Kuvakkeiden avaimet ovat {{icon}}, {{playing}} ja {{paused}}",
         "discordUpdateInterval": "{{discord}} rich presencen päivitysväli",
         "enableRemote": "aktivoi etäohjauspalvelin",
         "externalLinks_description": "ottaa ulkoiset linkit (Last.fm, MusicBrainz) artistien/albumien sivuilla",
@@ -513,7 +516,15 @@
         "musicbrainz_description": "näytä linkit musicbrainz sivulle artistin/albumin sivuilla, jos musicbrainz-id löytyy",
         "lastfm": "näytä last.fm linkit",
         "lastfm_description": "näytä linkit last.fm sivulle artistin/albumin sivuilla",
-        "musicbrainz": "näytä musicbrainz linkit"
+        "musicbrainz": "näytä musicbrainz linkit",
+        "neteaseTranslation": "Ota NetEasen käännökset käyttöön",
+        "neteaseTranslation_description": "Käytöss ollessa noutaa ja näyttää käännetyt sanat NetEasesta, jos ne ovat saatavilla.",
+        "preferLocalLyrics_description": "suosi paikallisia sanoituksia ulkoisten sijasta, kun saatavilla",
+        "preferLocalLyrics": "suosi paikallisia sanoituksia",
+        "discordPausedStatus": "näytä rich presence tauotettuna",
+        "discordPausedStatus_description": "ollessak käytössä, status näyttää milloin soitin on tautotettuna",
+        "preservePitch": "säilytä sävelkorkeus",
+        "preservePitch_description": "säilytä sävelkorkeus toistonopeutta muokatessa"
     },
     "page": {
         "itemDetail": {
@@ -582,7 +593,8 @@
             "home": "$t(common.home)",
             "nowPlaying": "nyt soi",
             "playlists": "$t(entity.playlist_other)",
-            "search": "$t(common.search)"
+            "search": "$t(common.search)",
+            "myLibrary": "oma kirjasto"
         },
         "setting": {
             "generalTab": "yleinen",
@@ -743,7 +755,9 @@
             "view": {
                 "table": "taulukko",
                 "card": "kortti",
-                "poster": "juliste"
+                "poster": "juliste",
+                "grid": "ruudukko",
+                "list": "lista"
             }
         },
         "column": {

@@ -1,14 +1,20 @@
-import { Divider, Group, Stack } from '@mantine/core';
 import debounce from 'lodash/debounce';
 import { ChangeEvent, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { NumberInput, SpinnerIcon, Switch, Text } from '/@/renderer/components';
 import { SelectWithInvalidData } from '/@/renderer/components/select-with-invalid-data';
 import { useAlbumArtistList } from '/@/renderer/features/artists/queries/album-artist-list-query';
 import { useGenreList } from '/@/renderer/features/genres';
 import { useTagList } from '/@/renderer/features/tag/queries/use-tag-list';
 import { AlbumListFilter, useListStoreActions, useListStoreByKey } from '/@/renderer/store';
+import { Divider } from '/@/shared/components/divider/divider';
+import { Group } from '/@/shared/components/group/group';
+import { NumberInput } from '/@/shared/components/number-input/number-input';
+import { SpinnerIcon } from '/@/shared/components/spinner/spinner';
+import { Stack } from '/@/shared/components/stack/stack';
+import { Switch } from '/@/shared/components/switch/switch';
+import { Text } from '/@/shared/components/text/text';
+import { YesNoSelect } from '/@/shared/components/yes-no-select/yes-no-select';
 import {
     AlbumArtistListSort,
     AlbumListQuery,
@@ -73,6 +79,41 @@ export const NavidromeAlbumFilters = ({
         serverId,
     });
 
+    const yesNoUndefinedFilters = [
+        {
+            label: t('filter.isFavorited', { postProcess: 'sentenceCase' }),
+            onChange: (favorite?: boolean) => {
+                const updatedFilters = setFilter({
+                    customFilters,
+                    data: {
+                        _custom: filter._custom,
+                        favorite,
+                    },
+                    itemType: LibraryItem.ALBUM,
+                    key: pageKey,
+                }) as AlbumListFilter;
+                onFilterChange(updatedFilters);
+            },
+            value: filter.favorite,
+        },
+        {
+            label: t('filter.isCompilation', { postProcess: 'sentenceCase' }),
+            onChange: (compilation?: boolean) => {
+                const updatedFilters = setFilter({
+                    customFilters,
+                    data: {
+                        _custom: filter._custom,
+                        compilation,
+                    },
+                    itemType: LibraryItem.ALBUM,
+                    key: pageKey,
+                }) as AlbumListFilter;
+                onFilterChange(updatedFilters);
+            },
+            value: filter.compilation,
+        },
+    ];
+
     const toggleFilters = [
         {
             label: t('filter.isRated', { postProcess: 'sentenceCase' }),
@@ -94,38 +135,6 @@ export const NavidromeAlbumFilters = ({
                 onFilterChange(updatedFilters);
             },
             value: filter._custom?.navidrome?.has_rating,
-        },
-        {
-            label: t('filter.isFavorited', { postProcess: 'sentenceCase' }),
-            onChange: (e: ChangeEvent<HTMLInputElement>) => {
-                const updatedFilters = setFilter({
-                    customFilters,
-                    data: {
-                        _custom: filter._custom,
-                        favorite: e.currentTarget.checked ? true : undefined,
-                    },
-                    itemType: LibraryItem.ALBUM,
-                    key: pageKey,
-                }) as AlbumListFilter;
-                onFilterChange(updatedFilters);
-            },
-            value: filter.favorite,
-        },
-        {
-            label: t('filter.isCompilation', { postProcess: 'sentenceCase' }),
-            onChange: (e: ChangeEvent<HTMLInputElement>) => {
-                const updatedFilters = setFilter({
-                    customFilters,
-                    data: {
-                        _custom: filter._custom,
-                        compilation: e.currentTarget.checked ? true : undefined,
-                    },
-                    itemType: LibraryItem.ALBUM,
-                    key: pageKey,
-                }) as AlbumListFilter;
-                onFilterChange(updatedFilters);
-            },
-            value: filter.compilation,
         },
         {
             label: t('filter.isRecentlyPlayed', { postProcess: 'sentenceCase' }),
@@ -231,10 +240,23 @@ export const NavidromeAlbumFilters = ({
 
     return (
         <Stack p="0.8rem">
+            {yesNoUndefinedFilters.map((filter) => (
+                <Group
+                    justify="space-between"
+                    key={`nd-filter-${filter.label}`}
+                >
+                    <Text>{filter.label}</Text>
+                    <YesNoSelect
+                        onChange={filter.onChange}
+                        size="xs"
+                        value={filter.value}
+                    />
+                </Group>
+            ))}
             {toggleFilters.map((filter) => (
                 <Group
+                    justify="space-between"
                     key={`nd-filter-${filter.label}`}
-                    position="apart"
                 >
                     <Text>{filter.label}</Text>
                     <Switch

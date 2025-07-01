@@ -347,8 +347,8 @@ export const SubsonicController: ControllerEndpoint = {
             type = AlbumListSortType.BY_YEAR;
         }
 
-        let fromYear;
-        let toYear;
+        let fromYear: number | undefined;
+        let toYear: number | undefined;
 
         if (query.minYear) {
             fromYear = query.minYear;
@@ -463,8 +463,8 @@ export const SubsonicController: ControllerEndpoint = {
             type = AlbumListSortType.BY_YEAR;
         }
 
-        let fromYear;
-        let toYear;
+        let fromYear: number | undefined;
+        let toYear: number | undefined;
 
         if (query.minYear) {
             fromYear = query.minYear;
