@@ -1,29 +1,32 @@
-import { useHotkeys } from '@mantine/hooks';
 import clsx from 'clsx';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
 import React, { MouseEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { generatePath, Link } from 'react-router-dom';
+import { generatePath, Link } from 'react-router';
+import { shallow } from 'zustand/shallow';
 
 import styles from './left-controls.module.css';
 
-import { SONG_CONTEXT_MENU_ITEMS } from '/@/renderer/features/context-menu/context-menu-items';
-import { useHandleGeneralContextMenu } from '/@/renderer/features/context-menu/hooks/use-handle-context-menu';
+import { ItemImage } from '/@/renderer/components/item-image/item-image';
+import { ContextMenuController } from '/@/renderer/features/context-menu/context-menu-controller';
+import { RadioMetadataDisplay } from '/@/renderer/features/player/components/radio-metadata-display';
+import { useIsRadioActive } from '/@/renderer/features/radio/hooks/use-radio-player';
 import { AppRoute } from '/@/renderer/router/routes';
 import {
+    useAppStore,
     useAppStoreActions,
-    useCurrentSong,
     useFullScreenPlayerStore,
     useHotkeySettings,
+    usePlayerSong,
     useSetFullScreenPlayerStore,
-    useSidebarStore,
 } from '/@/renderer/store';
 import { ActionIcon } from '/@/shared/components/action-icon/action-icon';
 import { Group } from '/@/shared/components/group/group';
-import { Image } from '/@/shared/components/image/image';
 import { Separator } from '/@/shared/components/separator/separator';
 import { Text } from '/@/shared/components/text/text';
 import { Tooltip } from '/@/shared/components/tooltip/tooltip';
+import { PlaybackSelectors } from '/@/shared/constants/playback-selectors';
+import { useHotkeys } from '/@/shared/hooks/use-hotkeys';
 import { LibraryItem } from '/@/shared/types/domain-types';
 
 export const LeftControls = () => {
@@ -31,21 +34,31 @@ export const LeftControls = () => {
     const { setSideBar } = useAppStoreActions();
     const { expanded: isFullScreenPlayerExpanded } = useFullScreenPlayerStore();
     const setFullScreenPlayerStore = useSetFullScreenPlayerStore();
-    const { collapsed, image } = useSidebarStore();
-    const hideImage = image && !collapsed;
-    const currentSong = useCurrentSong();
-    const title = currentSong?.name;
-    const artists = currentSong?.artists;
-    const { bindings } = useHotkeySettings();
 
-    const isSongDefined = Boolean(currentSong?.id);
-
-    const handleGeneralContextMenu = useHandleGeneralContextMenu(
-        LibraryItem.SONG,
-        SONG_CONTEXT_MENU_ITEMS,
+    const { collapsed, image } = useAppStore(
+        (state) => ({
+            collapsed: state.sidebar.collapsed,
+            image: state.sidebar.image,
+        }),
+        shallow,
     );
 
+    const currentSong = usePlayerSong();
+    const isRadioActive = useIsRadioActive();
+    const { bindings } = useHotkeySettings();
+
+    const isRadioMode = isRadioActive;
+    const hideImage = (image && !collapsed) || isRadioMode;
+    const isSongDefined = Boolean(currentSong?.id) && !isRadioMode;
+    const title = currentSong?.name;
+    const artists = currentSong?.artists;
+
     const handleToggleFullScreenPlayer = (e?: KeyboardEvent | MouseEvent<HTMLDivElement>) => {
+        // don't toggle if right click
+        if (e && 'button' in e && e.button === 2) {
+            return;
+        }
+
         e?.stopPropagation();
         setFullScreenPlayerStore({ expanded: !isFullScreenPlayerExpanded });
     };
@@ -53,6 +66,20 @@ export const LeftControls = () => {
     const handleToggleSidebarImage = (e?: MouseEvent<HTMLButtonElement>) => {
         e?.stopPropagation();
         setSideBar({ image: true });
+    };
+
+    const handleToggleContextMenu = (e: MouseEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!currentSong) {
+            return;
+        }
+
+        ContextMenuController.call({
+            cmd: { items: [currentSong], type: LibraryItem.SONG },
+            event: e,
+        });
     };
 
     const stopPropagation = (e?: MouseEvent) => e?.stopPropagation();
@@ -69,10 +96,7 @@ export const LeftControls = () => {
     return (
         <div className={styles.leftControlsContainer}>
             <LayoutGroup>
-                <AnimatePresence
-                    initial={false}
-                    mode="popLayout"
-                >
+                <AnimatePresence initial={false} mode="popLayout">
                     {!hideImage && (
                         <div className={styles.imageWrapper}>
                             <motion.div
@@ -82,6 +106,7 @@ export const LeftControls = () => {
                                 initial={{ opacity: 0, x: -50 }}
                                 key="playerbar-image"
                                 onClick={handleToggleFullScreenPlayer}
+                                onContextMenu={handleToggleContextMenu}
                                 role="button"
                                 transition={{ duration: 0.2, ease: 'easeIn' }}
                             >
@@ -89,12 +114,16 @@ export const LeftControls = () => {
                                     label={t('player.toggleFullscreenPlayer', {
                                         postProcess: 'sentenceCase',
                                     })}
-                                    openDelay={500}
+                                    openDelay={0}
                                 >
-                                    <Image
-                                        className={styles.playerbarImage}
+                                    <ItemImage
+                                        className={clsx(
+                                            styles.playerbarImage,
+                                            PlaybackSelectors.playerCoverArt,
+                                        )}
+                                        id={currentSong?.id}
+                                        itemType={LibraryItem.SONG}
                                         loading="eager"
-                                        src={currentSong?.imageUrl ?? ''}
                                     />
                                 </Tooltip>
                                 {!collapsed && (
@@ -115,7 +144,7 @@ export const LeftControls = () => {
                                             label: t('common.expand', {
                                                 postProcess: 'titleCase',
                                             }),
-                                            openDelay: 500,
+                                            openDelay: 0,
                                         }}
                                     />
                                 )}
@@ -123,90 +152,114 @@ export const LeftControls = () => {
                         </div>
                     )}
                 </AnimatePresence>
-                <motion.div
-                    className={styles.metadataStack}
-                    layout="position"
-                >
-                    <div
-                        className={styles.lineItem}
-                        onClick={stopPropagation}
-                    >
-                        <Group
-                            align="center"
-                            gap="xs"
-                            wrap="nowrap"
-                        >
-                            <Text
-                                component={Link}
-                                fw={500}
-                                isLink
-                                overflow="hidden"
-                                to={AppRoute.NOW_PLAYING}
+                <motion.div className={styles.metadataStack} layout="position">
+                    {isRadioMode ? (
+                        <RadioMetadataDisplay
+                            onStopPropagation={stopPropagation}
+                            onToggleContextMenu={handleToggleContextMenu}
+                        />
+                    ) : (
+                        <>
+                            <div className={styles.lineItem} onClick={stopPropagation}>
+                                <Group align="center" gap="xs" wrap="nowrap">
+                                    <Text
+                                        className={PlaybackSelectors.songTitle}
+                                        component={Link}
+                                        fw={500}
+                                        isLink
+                                        onContextMenu={handleToggleContextMenu}
+                                        overflow="hidden"
+                                        to={AppRoute.NOW_PLAYING}
+                                    >
+                                        {title || '—'}
+                                    </Text>
+                                    {isSongDefined && (
+                                        <ActionIcon
+                                            icon="ellipsisVertical"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                if (currentSong) {
+                                                    ContextMenuController.call({
+                                                        cmd: {
+                                                            items: [currentSong],
+                                                            type: LibraryItem.SONG,
+                                                        },
+                                                        event: e,
+                                                    });
+                                                }
+                                            }}
+                                            size="xs"
+                                            styles={{
+                                                root: {
+                                                    '--ai-size-xs': '1.15rem',
+                                                },
+                                            }}
+                                            variant="subtle"
+                                        />
+                                    )}
+                                </Group>
+                            </div>
+                            <div
+                                className={clsx(
+                                    styles.lineItem,
+                                    styles.secondary,
+                                    PlaybackSelectors.songArtist,
+                                )}
+                                onClick={stopPropagation}
                             >
-                                {title || '—'}
-                            </Text>
-                            {isSongDefined && (
-                                <ActionIcon
-                                    icon="ellipsisVertical"
-                                    onClick={(e) => handleGeneralContextMenu(e, [currentSong!])}
-                                    size="xs"
-                                    styles={{
-                                        root: {
-                                            '--ai-size-xs': '1.15rem',
-                                        },
-                                    }}
-                                    variant="subtle"
-                                />
-                            )}
-                        </Group>
-                    </div>
-                    <div
-                        className={clsx(styles.lineItem, styles.secondary)}
-                        onClick={stopPropagation}
-                    >
-                        {artists?.map((artist, index) => (
-                            <React.Fragment key={`bar-${artist.id}`}>
-                                {index > 0 && <Separator />}
+                                {artists?.map((artist, index) => (
+                                    <React.Fragment key={`bar-${artist.id}`}>
+                                        {index > 0 && <Separator />}
+                                        <Text
+                                            component={artist.id ? Link : undefined}
+                                            fw={500}
+                                            isLink={artist.id !== ''}
+                                            overflow="hidden"
+                                            size="md"
+                                            to={
+                                                artist.id
+                                                    ? generatePath(
+                                                          AppRoute.LIBRARY_ALBUM_ARTISTS_DETAIL,
+                                                          {
+                                                              albumArtistId: artist.id,
+                                                          },
+                                                      )
+                                                    : undefined
+                                            }
+                                        >
+                                            {artist.name || '—'}
+                                        </Text>
+                                    </React.Fragment>
+                                ))}
+                            </div>
+                            <div
+                                className={clsx(
+                                    styles.lineItem,
+                                    styles.secondary,
+                                    PlaybackSelectors.songAlbum,
+                                )}
+                                onClick={stopPropagation}
+                            >
                                 <Text
-                                    component={artist.id ? Link : undefined}
+                                    component={Link}
                                     fw={500}
-                                    isLink={artist.id !== ''}
+                                    isLink
                                     overflow="hidden"
                                     size="md"
                                     to={
-                                        artist.id
-                                            ? generatePath(AppRoute.LIBRARY_ALBUM_ARTISTS_DETAIL, {
-                                                  albumArtistId: artist.id,
+                                        currentSong?.albumId
+                                            ? generatePath(AppRoute.LIBRARY_ALBUMS_DETAIL, {
+                                                  albumId: currentSong.albumId,
                                               })
-                                            : undefined
+                                            : ''
                                     }
                                 >
-                                    {artist.name || '—'}
+                                    {currentSong?.album || '—'}
                                 </Text>
-                            </React.Fragment>
-                        ))}
-                    </div>
-                    <div
-                        className={clsx(styles.lineItem, styles.secondary)}
-                        onClick={stopPropagation}
-                    >
-                        <Text
-                            component={Link}
-                            fw={500}
-                            isLink
-                            overflow="hidden"
-                            size="md"
-                            to={
-                                currentSong?.albumId
-                                    ? generatePath(AppRoute.LIBRARY_ALBUMS_DETAIL, {
-                                          albumId: currentSong.albumId,
-                                      })
-                                    : ''
-                            }
-                        >
-                            {currentSong?.album || '—'}
-                        </Text>
-                    </div>
+                            </div>
+                        </>
+                    )}
                 </motion.div>
             </LayoutGroup>
         </div>

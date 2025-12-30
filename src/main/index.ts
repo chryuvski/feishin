@@ -9,6 +9,7 @@ import {
     nativeImage,
     nativeTheme,
     net,
+    powerSaveBlocker,
     protocol,
     Rectangle,
     screen,
@@ -18,10 +19,10 @@ import {
 import electronLocalShortcut from 'electron-localshortcut';
 import log from 'electron-log/main';
 import { autoUpdater } from 'electron-updater';
-import { access, constants, readFile, writeFile } from 'fs';
+import { access, constants } from 'fs';
 import path, { join } from 'path';
-import { deflate, inflate } from 'zlib';
 
+import packageJson from '../../package.json';
 import { disableMediaKeys, enableMediaKeys } from './features/core/player/media-keys';
 import { shutdownServer } from './features/core/remote';
 import { store } from './features/core/settings';
@@ -29,6 +30,7 @@ import MenuBuilder from './menu';
 import {
     autoUpdaterLogInterface,
     createLog,
+    disableAutoUpdates,
     hotkeyToElectronAccelerator,
     isLinux,
     isMacOS,
@@ -36,12 +38,38 @@ import {
 } from './utils';
 import './features';
 
-import { TitleTheme } from '/@/shared/types/types';
+import { PlayerType, TitleTheme } from '/@/shared/types/types';
 
 export default class AppUpdater {
     constructor() {
         log.transports.file.level = 'info';
         autoUpdater.logger = autoUpdaterLogInterface;
+
+        const isBetaVersion = packageJson.version.includes('-beta');
+        const releaseChannel = store.get('release_channel');
+        const isNotConfigured = !releaseChannel;
+
+        console.log('Release channel: ', releaseChannel);
+        console.log('Is beta version: ', isBetaVersion);
+
+        if (isNotConfigured) {
+            console.log(
+                'Release channel not configured, setting to ',
+                isBetaVersion ? 'beta' : 'latest',
+            );
+            store.set('release_channel', isBetaVersion ? 'beta' : 'latest');
+        }
+
+        if (releaseChannel === 'beta') {
+            autoUpdater.channel = 'beta';
+            autoUpdater.allowPrerelease = true;
+            autoUpdater.disableDifferentialDownload = true;
+        } else if (releaseChannel === 'latest') {
+            autoUpdater.channel = 'latest';
+            autoUpdater.allowDowngrade = true;
+            autoUpdater.allowPrerelease = false;
+        }
+
         autoUpdater.checkForUpdatesAndNotify();
     }
 }
@@ -66,6 +94,7 @@ let mainWindow: BrowserWindow | null = null;
 let tray: null | Tray = null;
 let exitFromTray = false;
 let forceQuit = false;
+let powerSaveBlockerId: null | number = null;
 
 if (process.env.NODE_ENV === 'production') {
     import('source-map-support').then((sourceMapSupport) => {
@@ -86,10 +115,10 @@ const installExtensions = async () => {
         const forceDownload = !!process.env.UPGRADE_EXTENSIONS;
         const extensions = ['REACT_DEVELOPER_TOOLS', 'REDUX_DEVTOOLS'];
 
-        return installer
-            .default(
+        installer
+            .installExtension(
                 extensions.map((name) => installer[name]),
-                forceDownload,
+                { forceDownload },
             )
             .then((installedExtensions) => {
                 createLog({
@@ -221,7 +250,7 @@ async function createWindow(first = true): Promise<void> {
         await installExtensions().catch(console.log);
     }
 
-    const nativeFrame = store.get('window_window_bar_style') === 'linux';
+    const nativeFrame = store.get('window_window_bar_style', 'linux') === 'linux';
     store.set('window_has_frame', nativeFrame);
 
     const nativeFrameConfig: Record<string, BrowserWindowConstructorOptions> = {
@@ -343,36 +372,6 @@ async function createWindow(first = true): Promise<void> {
         disableMediaKeys();
     });
 
-    ipcMain.on('player-restore-queue', () => {
-        if (store.get('resume')) {
-            const queueLocation = join(app.getPath('userData'), 'queue');
-
-            access(queueLocation, constants.F_OK, (accessError) => {
-                if (accessError) {
-                    console.error('unable to access saved queue: ', accessError);
-                    return;
-                }
-
-                readFile(queueLocation, (readError, buffer) => {
-                    if (readError) {
-                        console.error('failed to read saved queue: ', readError);
-                        return;
-                    }
-
-                    inflate(buffer, (decompressError, data) => {
-                        if (decompressError) {
-                            console.error('failed to decompress queue: ', decompressError);
-                            return;
-                        }
-
-                        const queue = JSON.parse(data.toString());
-                        getMainWindow()?.webContents.send('renderer-restore-queue', queue);
-                    });
-                });
-            });
-        }
-    });
-
     ipcMain.on('download-url', (_event, url: string) => {
         mainWindow?.webContents.downloadURL(url);
     });
@@ -413,56 +412,18 @@ async function createWindow(first = true): Promise<void> {
         mainWindow = null;
     });
 
-    let saved = false;
-
     mainWindow.on('close', (event) => {
         store.set('bounds', mainWindow?.getNormalBounds());
         store.set('maximized', mainWindow?.isMaximized());
         store.set('fullscreen', mainWindow?.isFullScreen());
 
         if (!exitFromTray && store.get('window_exit_to_tray')) {
-            if (isMacOS() && !forceQuit) {
-                exitFromTray = true;
-            }
             event.preventDefault();
             mainWindow?.hide();
         }
 
-        if (!saved && store.get('resume')) {
-            event.preventDefault();
-            saved = true;
-
-            getMainWindow()?.webContents.send('renderer-save-queue');
-
-            ipcMain.once('player-save-queue', async (_event, data: Record<string, any>) => {
-                const queueLocation = join(app.getPath('userData'), 'queue');
-                const serialized = JSON.stringify(data);
-
-                try {
-                    await new Promise<void>((resolve, reject) => {
-                        deflate(serialized, { level: 1 }, (error, deflated) => {
-                            if (error) {
-                                reject(error);
-                            } else {
-                                writeFile(queueLocation, deflated, (writeError) => {
-                                    if (writeError) {
-                                        reject(writeError);
-                                    } else {
-                                        resolve();
-                                    }
-                                });
-                            }
-                        });
-                    });
-                } catch (error) {
-                    console.error('error saving queue state: ', error);
-                } finally {
-                    mainWindow?.close();
-                    if (forceQuit) {
-                        app.exit();
-                    }
-                }
-            });
+        if (forceQuit) {
+            app.exit();
         }
     });
 
@@ -474,7 +435,7 @@ async function createWindow(first = true): Promise<void> {
     });
 
     if (isWindows()) {
-        app.setAppUserModelId(process.execPath);
+        app.setAppUserModelId('org.jeffvli.feishin');
     }
 
     if (isMacOS()) {
@@ -486,13 +447,17 @@ async function createWindow(first = true): Promise<void> {
     const menuBuilder = new MenuBuilder(mainWindow);
     menuBuilder.buildMenu();
 
+    if (process.platform !== 'darwin') {
+        Menu.setApplicationMenu(null);
+    }
+
     // Open URLs in the user's browser
     mainWindow.webContents.setWindowOpenHandler((edata) => {
         shell.openExternal(edata.url);
         return { action: 'deny' };
     });
 
-    if (store.get('disable_auto_updates') !== true) {
+    if (!disableAutoUpdates() && store.get('disable_auto_updates') !== true) {
         new AppUpdater();
     }
 
@@ -513,7 +478,21 @@ async function createWindow(first = true): Promise<void> {
     }
 }
 
-app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling,MediaSessionService');
+// Only allow hardware media key handling if:
+// 1. The "Enable Media Session" setting is enabled
+// 2. The playback type is WEB (mpv not supported)
+// 3. The platform is not Linux (because we are using mpris instead)
+const enableMediaSession = store.get('mediaSession', false) as boolean;
+const playbackType = store.get('playbackType', PlayerType.WEB) as PlayerType;
+const shouldDisableMediaFeatures =
+    isLinux() || !enableMediaSession || playbackType !== PlayerType.WEB;
+
+if (shouldDisableMediaFeatures) {
+    app.commandLine.appendSwitch(
+        'disable-features',
+        'HardwareMediaKeyHandling,MediaSessionService',
+    );
+}
 
 // https://github.com/electron/electron/issues/46538#issuecomment-2808806722
 app.commandLine.appendSwitch('gtk-version', '3');
@@ -613,6 +592,28 @@ ipcMain.on(
     },
 );
 
+ipcMain.handle('power-save-blocker-start', () => {
+    if (powerSaveBlockerId !== null) {
+        return powerSaveBlockerId;
+    }
+
+    powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+    return powerSaveBlockerId;
+});
+
+ipcMain.handle('power-save-blocker-stop', () => {
+    if (powerSaveBlockerId !== null) {
+        const stopped = powerSaveBlocker.stop(powerSaveBlockerId);
+        powerSaveBlockerId = null;
+        return stopped;
+    }
+    return false;
+});
+
+ipcMain.handle('power-save-blocker-is-started', () => {
+    return powerSaveBlockerId !== null && powerSaveBlocker.isStarted(powerSaveBlockerId);
+});
+
 app.on('window-all-closed', () => {
     globalShortcut.unregisterAll();
     // Respect the OSX convention of having the application in memory even
@@ -700,5 +701,13 @@ if (!ipcMain.eventNames().includes('open-item')) {
                 resolve();
             });
         });
+    });
+}
+
+// Register 'open-application-directory' handler globally, ensuring it is only registered once
+if (!ipcMain.eventNames().includes('open-application-directory')) {
+    ipcMain.handle('open-application-directory', async () => {
+        const userDataPath = app.getPath('userData');
+        shell.openPath(userDataPath);
     });
 }

@@ -5,10 +5,10 @@ import {
     SettingOption,
     SettingsSection,
 } from '/@/renderer/features/settings/components/settings-section';
+import { openRestartRequiredToast } from '/@/renderer/features/settings/restart-toast';
 import { useSettingsStoreActions, useWindowSettings } from '/@/renderer/store';
 import { Select } from '/@/shared/components/select/select';
 import { Switch } from '/@/shared/components/switch/switch';
-import { toast } from '/@/shared/components/toast/toast';
 import { Platform } from '/@/shared/types/types';
 
 const WINDOW_BAR_OPTIONS = [
@@ -44,26 +44,7 @@ export const WindowSettings = () => {
                         const requireRestart = isSwitchingToFrame || isSwitchingToNoFrame;
 
                         if (requireRestart) {
-                            toast.info({
-                                autoClose: false,
-                                id: 'restart-toast',
-                                message: t('common.forceRestartRequired', {
-                                    postProcess: 'sentenceCase',
-                                }),
-                                onClose: () => {
-                                    window.api.ipc!.send('app-restart');
-                                },
-                                title: t('common.restartRequired', {
-                                    postProcess: 'sentenceCase',
-                                }),
-                            });
-                        } else {
-                            toast.update({
-                                autoClose: 0,
-                                id: 'restart-toast',
-                                message: '',
-                                onClose: () => {},
-                            }); // clean old toasts
+                            openRestartRequiredToast();
                         }
 
                         localSettings?.set('window_window_bar_style', e as Platform);
@@ -203,7 +184,40 @@ export const WindowSettings = () => {
             isHidden: !isElectron() || !settings.tray,
             title: t('setting.startMinimized', { postProcess: 'sentenceCase' }),
         },
+        {
+            control: (
+                <Switch
+                    aria-label="Toggle prevent sleep on playback"
+                    defaultChecked={settings.preventSleepOnPlayback}
+                    disabled={!isElectron()}
+                    onChange={(e) => {
+                        if (!e) return;
+                        localSettings?.set(
+                            'window_prevent_sleep_on_playback',
+                            e.currentTarget.checked,
+                        );
+                        setSettings({
+                            window: {
+                                ...settings,
+                                preventSleepOnPlayback: e.currentTarget.checked,
+                            },
+                        });
+                    }}
+                />
+            ),
+            description: t('setting.preventSleepOnPlayback', {
+                context: 'description',
+                postProcess: 'sentenceCase',
+            }),
+            isHidden: !isElectron(),
+            title: t('setting.preventSleepOnPlayback', { postProcess: 'sentenceCase' }),
+        },
     ];
 
-    return <SettingsSection options={windowOptions} />;
+    return (
+        <SettingsSection
+            options={windowOptions}
+            title={t('page.setting.application', { postProcess: 'sentenceCase' })}
+        />
+    );
 };

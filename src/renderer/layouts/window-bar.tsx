@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import isElectron from 'is-electron';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { RiCheckboxBlankLine, RiCloseLine, RiSubtractLine } from 'react-icons/ri';
 
 import appIcon from '../../../assets/icons/32x32.png';
@@ -12,8 +12,8 @@ import macMinHover from './assets/min-mac-hover.png';
 import macMin from './assets/min-mac.png';
 import styles from './window-bar.module.css';
 
-import { useCurrentStatus, useQueueStatus } from '/@/renderer/store';
-import { useWindowSettings } from '/@/renderer/store/settings.store';
+import { useRadioPlayer } from '/@/renderer/features/radio/hooks/use-radio-player';
+import { useAppStore, usePlayerData, usePlayerStatus, useWindowSettings } from '/@/renderer/store';
 import { Text } from '/@/shared/components/text/text';
 import { Platform, PlayerStatus } from '/@/shared/types/types';
 
@@ -40,27 +40,16 @@ const WindowsControls = ({ controls, title }: WindowBarControlsProps) => {
     return (
         <div className={styles.windowsContainer}>
             <div className={styles.playerStatusContainer}>
-                <img
-                    alt=""
-                    height={18}
-                    src={appIcon}
-                    width={18}
-                />
-                <Text>{title}</Text>
+                <img alt="" height={16} src={appIcon} style={{ flexShrink: 0 }} width={16} />
+                <Text className={styles.playerStatusText} overflow="hidden" size="sm">
+                    {title}
+                </Text>
             </div>
             <div className={styles.windowsButtonGroup}>
-                <div
-                    className={styles.windowsButton}
-                    onClick={handleMinimize}
-                    role="button"
-                >
+                <div className={styles.windowsButton} onClick={handleMinimize} role="button">
                     <RiSubtractLine size={19} />
                 </div>
-                <div
-                    className={styles.windowsButton}
-                    onClick={handleMaximize}
-                    role="button"
-                >
+                <div className={styles.windowsButton} onClick={handleMaximize} role="button">
                     <RiCheckboxBlankLine size={13} />
                 </div>
                 <div
@@ -129,29 +118,24 @@ const MacOsControls = ({ controls, title }: WindowBarControlsProps) => {
                 </div>
             </div>
             <div className={styles.playerStatusContainer}>
-                <Text>{title}</Text>
+                <Text className={styles.playerStatusText} overflow="hidden" size="sm">
+                    {title}
+                </Text>
             </div>
         </div>
     );
 };
 
 export const WindowBar = () => {
-    const playerStatus = useCurrentStatus();
-    const { currentSong, index, length } = useQueueStatus();
     const { windowBarStyle } = useWindowSettings();
-
-    const statusString = playerStatus === PlayerStatus.PAUSED ? '(Paused) ' : '';
-    const queueString = length ? `(${index + 1} / ${length}) ` : '';
-    const title = length
-        ? currentSong?.artistName
-            ? `${statusString}${queueString}${currentSong?.name} — ${currentSong?.artistName}`
-            : `${statusString}${queueString}${currentSong?.name}`
-        : 'Feishin';
-    document.title = title;
-
-    const [max, setMax] = useState(localSettings?.env.START_MAXIMIZED || false);
-
+    const playerStatus = usePlayerStatus();
+    const privateMode = useAppStore((state) => state.privateMode);
     const handleMinimize = () => minimize();
+
+    const { currentSong, index, queueLength } = usePlayerData();
+    const { isPlaying: isRadioPlaying, metadata, stationName } = useRadioPlayer();
+    const isRadioActive = Boolean(stationName || metadata);
+    const [max, setMax] = useState(localSettings?.env.START_MAXIMIZED || false);
 
     const handleMaximize = useCallback(() => {
         if (max) {
@@ -164,8 +148,61 @@ export const WindowBar = () => {
 
     const handleClose = useCallback(() => close(), []);
 
+    const title = useMemo(() => {
+        const privateModeString = privateMode ? '(Private mode)' : '';
+
+        // Show radio information if radio is active
+        if (isRadioActive) {
+            const radioStatusString = !isRadioPlaying ? '(Paused) ' : '';
+            const radioTitle = stationName || 'Radio';
+
+            // Format metadata: show title, or combine artist and title if both available
+            let radioMetadata = '';
+            if (metadata) {
+                if (metadata.title && metadata.artist) {
+                    radioMetadata = ` — ${metadata.artist} — ${metadata.title}`;
+                } else if (metadata.title) {
+                    radioMetadata = ` — ${metadata.title}`;
+                } else if (metadata.artist) {
+                    radioMetadata = ` — ${metadata.artist}`;
+                }
+            }
+
+            return `${radioStatusString}${radioTitle}${radioMetadata} — Feishin${privateMode ? ` ${privateModeString}` : ''}`;
+        }
+
+        // Show regular song information
+        const statusString = playerStatus === PlayerStatus.PAUSED ? '(Paused) ' : '';
+        const queueString = queueLength ? `(${index + 1} / ${queueLength}) ` : '';
+        const title = `${
+            queueLength
+                ? `${statusString}${queueString}${currentSong?.name}${currentSong?.artistName ? ` — ${currentSong?.artistName} — Feishin` : ''}`
+                : 'Feishin'
+        }${privateMode ? ` ${privateModeString}` : ''}`;
+        return title;
+    }, [
+        currentSong?.artistName,
+        currentSong?.name,
+        index,
+        isRadioActive,
+        isRadioPlaying,
+        metadata,
+        playerStatus,
+        privateMode,
+        queueLength,
+        stationName,
+    ]);
+
+    useEffect(() => {
+        document.title = title;
+    }, [title]);
+
+    if (windowBarStyle === Platform.WEB) {
+        return null;
+    }
+
     return (
-        <>
+        <div className={styles.windowBar}>
             {windowBarStyle === Platform.WINDOWS && (
                 <WindowsControls
                     controls={{ handleClose, handleMaximize, handleMinimize }}
@@ -178,6 +215,6 @@ export const WindowBar = () => {
                     title={title}
                 />
             )}
-        </>
+        </div>
     );
 };

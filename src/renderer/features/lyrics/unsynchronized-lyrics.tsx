@@ -3,11 +3,12 @@ import { useMemo } from 'react';
 import styles from './unsynchronized-lyrics.module.css';
 
 import { LyricLine } from '/@/renderer/features/lyrics/lyric-line';
-import { useLyricsSettings } from '/@/renderer/store';
+import { useLyricsDisplaySettings, useLyricsSettings } from '/@/renderer/store';
 import { FullLyricsMetadata } from '/@/shared/types/domain-types';
 
 export interface UnsynchronizedLyricsProps extends Omit<FullLyricsMetadata, 'lyrics'> {
     lyrics: string;
+    settingsKey?: string;
     translatedLyrics?: null | string;
 }
 
@@ -16,10 +17,23 @@ export const UnsynchronizedLyrics = ({
     lyrics,
     name,
     remote,
+    settingsKey = 'default',
     source,
     translatedLyrics,
 }: UnsynchronizedLyricsProps) => {
-    const settings = useLyricsSettings();
+    const lyricsSettings = useLyricsSettings();
+    const displaySettings = useLyricsDisplaySettings(settingsKey);
+    const settings = {
+        ...lyricsSettings,
+        fontSizeUnsync:
+            displaySettings.fontSizeUnsync && displaySettings.fontSizeUnsync !== 0
+                ? displaySettings.fontSizeUnsync
+                : 24,
+        gapUnsync:
+            displaySettings.gapUnsync && displaySettings.gapUnsync !== 0
+                ? displaySettings.gapUnsync
+                : 24,
+    };
     const lines = useMemo(() => {
         return lyrics.split('\n');
     }, [lyrics]);
@@ -29,10 +43,7 @@ export const UnsynchronizedLyrics = ({
     }, [translatedLyrics]);
 
     return (
-        <div
-            className={styles.container}
-            style={{ gap: `${settings.gapUnsync}px` }}
-        >
+        <div className={styles.container} style={{ gap: `${settings.gapUnsync}px` }}>
             {settings.showProvider && source && (
                 <LyricLine
                     alignment={settings.alignment}
@@ -50,23 +61,14 @@ export const UnsynchronizedLyrics = ({
                 />
             )}
             {lines.map((text, idx) => (
-                <div key={idx}>
-                    <LyricLine
-                        alignment={settings.alignment}
-                        className="lyric-line unsynchronized"
-                        fontSize={settings.fontSizeUnsync}
-                        id={`lyric-${idx}`}
-                        text={text}
-                    />
-                    {translatedLines[idx] && (
-                        <LyricLine
-                            alignment={settings.alignment}
-                            className="lyric-line unsynchronized translation"
-                            fontSize={settings.fontSizeUnsync * 0.8}
-                            text={translatedLines[idx]}
-                        />
-                    )}
-                </div>
+                <LyricLine
+                    alignment={settings.alignment}
+                    className="lyric-line unsynchronized"
+                    fontSize={settings.fontSizeUnsync}
+                    id={`lyric-${idx}`}
+                    key={idx}
+                    text={text + (translatedLines[idx] ? `_BREAK_${translatedLines[idx]}` : '')}
+                />
             ))}
         </div>
     );

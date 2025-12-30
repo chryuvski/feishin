@@ -6,16 +6,19 @@ import {
     SettingsSection,
 } from '/@/renderer/features/settings/components/settings-section';
 import {
-    useDiscordSetttings,
+    DiscordDisplayType,
+    DiscordLinkType,
+    useDiscordSettings,
     useGeneralSettings,
     useSettingsStoreActions,
 } from '/@/renderer/store';
+import { Select } from '/@/shared/components/select/select';
 import { Switch } from '/@/shared/components/switch/switch';
 import { TextInput } from '/@/shared/components/text-input/text-input';
 
 export const DiscordSettings = () => {
     const { t } = useTranslation();
-    const settings = useDiscordSetttings();
+    const settings = useDiscordSettings();
     const generalSettings = useGeneralSettings();
     const { setSettings } = useSettingsStoreActions();
 
@@ -122,6 +125,98 @@ export const DiscordSettings = () => {
         },
         {
             control: (
+                <Select
+                    aria-label={t('setting.discordDisplayType')}
+                    clearable={false}
+                    data={[
+                        { label: 'Feishin', value: DiscordDisplayType.FEISHIN },
+                        {
+                            label: t('setting.discordDisplayType', {
+                                context: 'songname',
+                                postProcess: 'sentenceCase',
+                            }),
+                            value: DiscordDisplayType.SONG_NAME,
+                        },
+                        {
+                            label: t('setting.discordDisplayType_artistname', {
+                                context: 'artistname',
+                                postProcess: 'sentenceCase',
+                            }),
+                            value: DiscordDisplayType.ARTIST_NAME,
+                        },
+                    ]}
+                    defaultValue={settings.displayType}
+                    onChange={(e) => {
+                        if (!e) return;
+                        setSettings({
+                            discord: {
+                                ...settings,
+                                displayType: e as DiscordDisplayType,
+                            },
+                        });
+                    }}
+                />
+            ),
+            description: t('setting.discordDisplayType', {
+                context: 'description',
+                postProcess: 'sentenceCase',
+            }),
+            isHidden: !isElectron(),
+            title: t('setting.discordDisplayType', {
+                discord: 'Discord',
+                musicbrainz: 'musicbrainz',
+                postProcess: 'sentenceCase',
+            }),
+        },
+        {
+            control: (
+                <Select
+                    aria-label={t('setting.discordLinkType')}
+                    clearable={false}
+                    data={[
+                        {
+                            label: t('setting.discordLinkType_none', {
+                                postProcess: 'sentenceCase',
+                            }),
+                            value: DiscordLinkType.NONE,
+                        },
+                        { label: 'last.fm', value: DiscordLinkType.LAST_FM },
+                        { label: 'musicbrainz', value: DiscordLinkType.MBZ },
+                        {
+                            label: t('setting.discordLinkType_mbz_lastfm', {
+                                lastfm: 'last.fm',
+                                musicbrainz: 'musicbrainz',
+                            }),
+                            value: DiscordLinkType.MBZ_LAST_FM,
+                        },
+                    ]}
+                    defaultValue={settings.linkType}
+                    onChange={(e) => {
+                        if (!e) return;
+                        setSettings({
+                            discord: {
+                                ...settings,
+                                linkType: e as DiscordLinkType,
+                            },
+                        });
+                    }}
+                />
+            ),
+            description: t('setting.discordLinkType', {
+                context: 'description',
+                discord: 'Discord',
+                lastfm: 'last.fm',
+                musicbrainz: 'musicbrainz',
+                postProcess: 'sentenceCase',
+            }),
+            isHidden: !isElectron(),
+            title: t('setting.discordLinkType', {
+                discord: 'Discord',
+                postProcess: 'sentenceCase',
+            }),
+        },
+        {
+            control: (
                 <Switch
                     checked={settings.showServerImage}
                     onChange={(e) => {
@@ -173,5 +268,10 @@ export const DiscordSettings = () => {
         },
     ];
 
-    return <SettingsSection options={discordOptions} />;
+    return (
+        <SettingsSection
+            options={discordOptions}
+            title={t('page.setting.discord', { postProcess: 'sentenceCase' })}
+        />
+    );
 };

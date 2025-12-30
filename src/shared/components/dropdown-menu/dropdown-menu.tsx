@@ -14,15 +14,35 @@ import styles from './dropdown-menu.module.css';
 
 import { createPolymorphicComponent } from '/@/shared/utils/create-polymorphic-component';
 
-type MenuDividerProps = MantineMenuDividerProps;
-type MenuDropdownProps = MantineMenuDropdownProps;
-interface MenuItemProps extends MantineMenuItemProps {
+export interface MenuItemProps extends MantineMenuItemProps {
     children: ReactNode;
     isDanger?: boolean;
     isSelected?: boolean;
 }
+type MenuDividerProps = MantineMenuDividerProps;
+type MenuDropdownProps = MantineMenuDropdownProps;
 type MenuLabelProps = MantineMenuLabelProps;
 type MenuProps = MantineMenuProps;
+
+const getTransition = (position?: string) => {
+    if (position?.includes('top')) {
+        return 'fade-up';
+    }
+
+    if (position?.includes('bottom')) {
+        return 'fade-down';
+    }
+
+    if (position?.includes('left')) {
+        return 'fade-left';
+    }
+
+    if (position?.includes('right')) {
+        return 'fade-right';
+    }
+
+    return 'fade';
+};
 
 export const DropdownMenu = ({ children, ...props }: MenuProps) => {
     return (
@@ -31,8 +51,9 @@ export const DropdownMenu = ({ children, ...props }: MenuProps) => {
                 dropdown: styles['menu-dropdown'],
                 itemSection: styles['menu-item-section'],
             }}
+            offset={10}
             transitionProps={{
-                transition: 'fade',
+                transition: getTransition(props.position),
             }}
             withinPortal
             {...props}
@@ -44,10 +65,7 @@ export const DropdownMenu = ({ children, ...props }: MenuProps) => {
 
 const MenuLabel = ({ children, ...props }: MenuLabelProps) => {
     return (
-        <MantineMenu.Label
-            className={styles['menu-label']}
-            {...props}
-        >
+        <MantineMenu.Label className={styles['menu-label']} {...props}>
             {children}
         </MantineMenu.Label>
     );
@@ -75,10 +93,7 @@ const pMenuItem = ({ children, isDanger, isSelected, ...props }: MenuItemProps) 
 
 const MenuDropdown = ({ children, ...props }: MenuDropdownProps) => {
     return (
-        <MantineMenu.Dropdown
-            className={styles['menu-dropdown']}
-            {...props}
-        >
+        <MantineMenu.Dropdown className={styles['menu-dropdown']} {...props}>
             {children}
         </MantineMenu.Dropdown>
     );
@@ -87,12 +102,7 @@ const MenuDropdown = ({ children, ...props }: MenuDropdownProps) => {
 const MenuItem = createPolymorphicComponent<'button', MenuItemProps>(pMenuItem);
 
 const MenuDivider = ({ ...props }: MenuDividerProps) => {
-    return (
-        <MantineMenu.Divider
-            className={styles['menu-divider']}
-            {...props}
-        />
-    );
+    return <MantineMenu.Divider className={styles['menu-divider']} {...props} />;
 };
 
 DropdownMenu.Label = MenuLabel;

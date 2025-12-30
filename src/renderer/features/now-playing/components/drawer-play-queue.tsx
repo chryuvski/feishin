@@ -1,20 +1,17 @@
-import type { AgGridReact as AgGridReactType } from '@ag-grid-community/react/lib/agGridReact';
+import { useRef, useState } from 'react';
 
-import { useRef } from 'react';
-
+import { ItemListHandle } from '/@/renderer/components/item-list/types';
 import { PlayQueue } from '/@/renderer/features/now-playing/components/play-queue';
 import { PlayQueueListControls } from '/@/renderer/features/now-playing/components/play-queue-list-controls';
 import { Flex } from '/@/shared/components/flex/flex';
-import { Song } from '/@/shared/types/domain-types';
+import { ItemListKey } from '/@/shared/types/types';
 
 export const DrawerPlayQueue = () => {
-    const queueRef = useRef<null | { grid: AgGridReactType<Song> }>(null);
+    const queueRef = useRef<ItemListHandle | null>(null);
+    const [search, setSearch] = useState<string | undefined>(undefined);
 
     return (
-        <Flex
-            direction="column"
-            h="100%"
-        >
+        <Flex direction="column" h="100%">
             <div
                 style={{
                     backgroundColor: 'var(--theme-colors-background)',
@@ -22,19 +19,13 @@ export const DrawerPlayQueue = () => {
                 }}
             >
                 <PlayQueueListControls
-                    tableRef={queueRef}
-                    type="sideQueue"
+                    handleSearch={setSearch}
+                    searchTerm={search}
+                    type={ItemListKey.SIDE_QUEUE}
                 />
             </div>
-            <Flex
-                bg="var(--theme-colors-background)"
-                h="100%"
-                mb="0.6rem"
-            >
-                <PlayQueue
-                    ref={queueRef}
-                    type="sideQueue"
-                />
+            <Flex bg="var(--theme-colors-background)" h="100%" mb="0.6rem">
+                <PlayQueue listKey={ItemListKey.SIDE_QUEUE} ref={queueRef} searchTerm={search} />
             </Flex>
         </Flex>
     );

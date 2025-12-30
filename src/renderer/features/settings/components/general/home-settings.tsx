@@ -1,10 +1,17 @@
 import { DraggableItems } from '/@/renderer/features/settings/components/general/draggable-items';
-import { HomeItem, useGeneralSettings, useSettingsStoreActions } from '/@/renderer/store';
+import {
+    HomeItem,
+    SortableItem,
+    useGeneralSettings,
+    useSettingsStoreActions,
+} from '/@/renderer/store';
 
 const HOME_ITEMS: Array<[string, string]> = [
+    [HomeItem.GENRES, 'page.home.genres'],
     [HomeItem.RANDOM, 'page.home.explore'],
     [HomeItem.RECENTLY_PLAYED, 'page.home.recentlyPlayed'],
     [HomeItem.RECENTLY_ADDED, 'page.home.newlyAdded'],
+    [HomeItem.RECENTLY_RELEASED, 'page.home.recentlyReleased'],
     [HomeItem.MOST_PLAYED, 'page.home.mostPlayed'],
 ];
 
@@ -16,8 +23,8 @@ export const HomeSettings = () => {
         <DraggableItems
             description="setting.homeConfiguration"
             itemLabels={HOME_ITEMS}
+            items={homeItems as SortableItem<HomeItem>[]}
             setItems={setHomeItems}
-            settings={homeItems}
             title="setting.homeConfiguration"
         />
     );

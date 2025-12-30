@@ -17,7 +17,7 @@ export const AnimatedPage = forwardRef(
             <motion.main
                 className={styles.animatedPage}
                 ref={ref}
-                {...animationProps.fadeIn}
+                {...{ ...animationProps.fadeIn, transition: { duration: 1, ease: 'anticipate' } }}
             >
                 {children}
             </motion.main>
